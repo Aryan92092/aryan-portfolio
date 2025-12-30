@@ -1,0 +1,10 @@
+# Render Blueprint for Static Site Deployment
+# This file is optional but helps with easy deployment
+
+services:
+  - type: web
+    name: portfolio
+    env: static
+    buildCommand: ""
+    staticPublishPath: ./
+
