@@ -247,10 +247,47 @@
         <div class="modal-caption" id="modalCaption"></div>
     </div>
 
+    <!-- Admin Login Modal -->
+    <div class="modal" id="adminLoginModal">
+        <div class="admin-login-box">
+            <span class="modal-close" onclick="closeAdminLogin()">&times;</span>
+            <h2><i class="fas fa-lock"></i> Admin Login</h2>
+            <p>Enter your password to access the admin panel</p>
+            <form id="adminLoginForm" onsubmit="handleAdminLogin(event)">
+                <div class="form-group">
+                    <input type="password" id="adminPassword" placeholder="Enter admin password" required autofocus>
+                </div>
+                <button type="submit" class="btn btn-primary" style="width: 100%;">
+                    <i class="fas fa-sign-in-alt"></i> Login
+                </button>
+            </form>
+            <p class="admin-hint">To login, add <code>?admin</code> to the URL or click the lock icon in the footer</p>
+        </div>
+    </div>
+
+    <!-- Admin Panel Modal -->
+    <div class="modal admin-panel-modal" id="adminModal" style="display: none;">
+        <div class="admin-panel-container" id="adminPanelContent">
+            <!-- Content will be loaded dynamically -->
+        </div>
+    </div>
+
+    <!-- Admin Login Button (Hidden in footer) -->
+    <div id="adminLoginTrigger" style="position: fixed; bottom: 20px; right: 20px; z-index: 999; display: none;">
+        <button class="admin-login-trigger" onclick="showAdminLogin()" title="Admin Login">
+            <i class="fas fa-lock"></i>
+        </button>
+    </div>
+
     <!-- Scripts -->
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <script src="js/data.js"></script>
-    <script src="js/main.js"></script>
+    <!-- Firebase must load first to initialize window.db -->
+    <script type="module" src="js/firebase.js"></script>
+    <!-- Main.js is now a module that uses Firebase -->
+    <script type="module" src="js/main.js"></script>
+    <!-- Admin.js loads after Firebase and main -->
+    <script src="js/admin.js"></script>
 </body>
 </html>
 
