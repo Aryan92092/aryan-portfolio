@@ -117,7 +117,7 @@ const researchData = [
         abstract: "This paper presents a comprehensive comparison of various deep learning architectures for medical image classification. We evaluate CNNs, ResNets, and Vision Transformers on multiple medical imaging datasets, achieving significant improvements in accuracy and efficiency.",
         pdf: "research-papers/medical-cnn.pdf",
         year: "2024",
-        authors: "Your Name, Co-Author"
+        authors: "Aryan Prajapati, Co-Author"
     },
     {
         id: 2,
@@ -126,7 +126,7 @@ const researchData = [
         abstract: "We propose an intelligent agriculture system using IoT sensors and machine learning algorithms to optimize crop yield, monitor soil conditions, and predict weather patterns. The system demonstrates improved efficiency and reduced resource consumption.",
         pdf: "research-papers/smart-agriculture.pdf",
         year: "2023",
-        authors: "Your Name, Co-Author"
+        authors: "Aryan Prajapati, Co-Author"
     },
     {
         id: 3,
@@ -135,7 +135,7 @@ const researchData = [
         abstract: "This research explores advanced NLP techniques for real-time sentiment analysis on social media platforms. We propose a hybrid model combining transformer architectures with traditional ML methods, achieving superior performance on benchmark datasets.",
         pdf: "research-papers/nlp-sentiment.pdf",
         year: "2023",
-        authors: "Your Name, Co-Author"
+        authors: "Aryan Prajapati, Co-Author"
     }
 ];
 

@@ -56,51 +56,97 @@ import {
   // ============================================
   // LOAD PROJECTS FROM FIREBASE (IMPORTANT)
   // ============================================
-  
+
   async function loadProjects() {
     const projectsFeed = document.getElementById('projectsFeed');
-    projectsFeed.innerHTML = '';
-  
-    const snapshot = await getDocs(collection(window.db, "projects"));
-    let index = 0;
-  
-    snapshot.forEach(doc => {
-      const p = doc.data();
-  
-      const card = document.createElement('div');
-      card.className = 'project-card';
-      card.setAttribute('data-aos', 'fade-up');
-      card.style.animationDelay = `${index * 0.1}s`;
-      index++;
-  
-      card.innerHTML = `
-        <div class="project-image-container">
-          ${p.image ? `<img src="${p.image}" alt="${p.title}" class="project-image">`
-            : `<div class="project-image-placeholder"><i class="fas fa-image"></i></div>`}
-        </div>
-  
-        <div class="project-content">
-          <h3>${p.title}</h3>
-          <span class="project-category">${p.category}</span>
-          <p>${p.description}</p>
-  
-          <div class="project-meta">
-            <span><i class="fas fa-calendar"></i> ${p.date}</span>
+    if (!projectsFeed) {
+      console.error('Projects feed element not found');
+      return;
+    }
+
+    // Show loading state
+    projectsFeed.innerHTML = '<div style="text-align: center; padding: 2rem;"><i class="fas fa-spinner fa-spin"></i> Loading projects...</div>';
+
+    try {
+      // Verify Firebase is connected
+      if (!window.db) {
+        throw new Error('Firebase database not initialized. Check Firebase configuration.');
+      }
+
+      console.log('Fetching projects from Firebase...');
+      const snapshot = await getDocs(collection(window.db, "projects"));
+      
+      // Clear loading state
+      projectsFeed.innerHTML = '';
+
+      if (snapshot.empty) {
+        projectsFeed.innerHTML = '<div style="text-align: center; padding: 2rem; color: #999;">No projects found in Firebase. Please add projects to your Firestore database.</div>';
+        console.warn('No projects found in Firebase Firestore collection "projects"');
+        return;
+      }
+
+      let index = 0;
+      const projects = [];
+
+      snapshot.forEach(doc => {
+        const p = doc.data();
+        projects.push(p);
+
+        const card = document.createElement('div');
+        card.className = 'project-card';
+        card.setAttribute('data-aos', 'fade-up');
+        card.style.animationDelay = `${index * 0.1}s`;
+        index++;
+
+        // Sanitize HTML to prevent XSS
+        const escapeHtml = (text) => {
+          const div = document.createElement('div');
+          div.textContent = text;
+          return div.innerHTML;
+        };
+
+        card.innerHTML = `
+          <div class="project-image-container">
+            ${p.image ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.title || 'Project')}" class="project-image" loading="lazy">`
+              : `<div class="project-image-placeholder"><i class="fas fa-image"></i></div>`}
           </div>
-  
-          <div class="project-actions">
-            ${p.github ? `<a href="${p.github}" target="_blank" class="btn btn-secondary">
-              <i class="fab fa-github"></i> GitHub</a>` : ''}
-            ${p.demo ? `<a href="${p.demo}" target="_blank" class="btn btn-primary">
-              <i class="fas fa-external-link-alt"></i> Live Demo</a>` : ''}
+
+          <div class="project-content">
+            <h3>${escapeHtml(p.title || 'Untitled Project')}</h3>
+            <span class="project-category">${escapeHtml(p.category || 'Uncategorized')}</span>
+            <p>${escapeHtml(p.description || 'No description available.')}</p>
+
+            <div class="project-meta">
+              <span><i class="fas fa-calendar"></i> ${escapeHtml(p.date || 'N/A')}</span>
+            </div>
+
+            <div class="project-actions">
+              ${p.github ? `<a href="${escapeHtml(p.github)}" target="_blank" rel="noopener noreferrer" class="btn btn-secondary">
+                <i class="fab fa-github"></i> GitHub</a>` : ''}
+              ${p.demo ? `<a href="${escapeHtml(p.demo)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+                <i class="fas fa-external-link-alt"></i> Live Demo</a>` : ''}
+            </div>
           </div>
+        `;
+
+        projectsFeed.appendChild(card);
+      });
+
+      console.log(`Successfully loaded ${projects.length} project(s) from Firebase`);
+      AOS.refresh();
+    } catch (error) {
+      console.error('Error loading projects from Firebase:', error);
+      projectsFeed.innerHTML = `
+        <div style="text-align: center; padding: 2rem; color: #dc3545;">
+          <i class="fas fa-exclamation-triangle"></i>
+          <h3>Error Loading Projects</h3>
+          <p>${error.message}</p>
+          <p style="font-size: 0.9rem; margin-top: 1rem; color: #666;">
+            Check browser console for details. Verify Firebase connection and Firestore rules.
+          </p>
         </div>
       `;
-  
-      projectsFeed.appendChild(card);
-    });
-  
-    AOS.refresh();
+    }
   }
   
   // ============================================
@@ -153,19 +199,36 @@ import {
   // INIT
   // ============================================
 
+  // Wait for Firebase to be ready with retry logic
+  async function waitForFirebase(maxRetries = 10, delay = 200) {
+    for (let i = 0; i < maxRetries; i++) {
+      if (window.db) {
+        console.log('Firebase connected successfully');
+        return true;
+      }
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+    return false;
+  }
+
   document.addEventListener('DOMContentLoaded', async () => {
-    // Wait for Firebase to initialize
-    if (window.db) {
+    // Wait for Firebase to initialize with proper retry
+    const firebaseReady = await waitForFirebase();
+    
+    if (firebaseReady) {
       await loadProjects();
     } else {
-      // Retry after a short delay if db isn't ready
-      setTimeout(async () => {
-        if (window.db) {
-          await loadProjects();
-        } else {
-          console.error('Firebase not initialized');
-        }
-      }, 100);
+      console.error('Firebase initialization timeout. Check Firebase configuration and network connection.');
+      const projectsFeed = document.getElementById('projectsFeed');
+      if (projectsFeed) {
+        projectsFeed.innerHTML = `
+          <div style="text-align: center; padding: 2rem; color: #dc3545;">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Firebase Connection Error</h3>
+            <p>Unable to connect to Firebase. Please check your Firebase configuration.</p>
+          </div>
+        `;
+      }
     }
 
     // Initialize admin system
@@ -185,7 +248,8 @@ import {
     }
   });
 
-  // Make admin functions globally available
+  // Make functions globally available for admin.js and debugging
+  window.loadProjects = loadProjects;
   window.showAdminLogin = showAdminLogin;
   window.closeAdminLogin = closeAdminLogin;
   window.handleAdminLogin = handleAdminLogin;

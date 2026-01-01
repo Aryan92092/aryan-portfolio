@@ -5,9 +5,12 @@
 // Admin Configuration
 const ADMIN_CONFIG = {
     // CHANGE THIS PASSWORD - Set your admin password here
+    // For production, consider using Firebase Authentication instead
     password: 'admin123', // Change this to your secure password
     sessionKey: 'admin_session',
-    dataKey: 'portfolio_data'
+    dataKey: 'portfolio_data',
+    // Enable Firebase writes (requires proper Firestore rules)
+    useFirebase: true // Set to false to use localStorage only
 };
 
 // Check if user is admin
@@ -208,7 +211,7 @@ function loadAdminPanelContent() {
 }
 
 // Switch admin tab
-function switchAdminTab(tab, event) {
+async function switchAdminTab(tab, event) {
     document.querySelectorAll('.admin-tab').forEach(t => t.classList.remove('active'));
     if (event && event.target) {
         event.target.classList.add('active');
@@ -227,7 +230,7 @@ function switchAdminTab(tab, event) {
             content.innerHTML = getPersonalInfoTab();
             break;
         case 'projects':
-            content.innerHTML = getProjectsTab();
+            content.innerHTML = await getProjectsTab();
             break;
         case 'research':
             content.innerHTML = getResearchTab();
@@ -282,9 +285,48 @@ function getPersonalInfoTab() {
     `;
 }
 
+// Load projects from Firebase into projectsData array
+async function loadProjectsFromFirebase() {
+    if (!window.db) {
+        console.warn('Firebase not initialized, using local projectsData');
+        return;
+    }
+
+    try {
+        const { collection, getDocs } = 
+            await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        
+        const snapshot = await getDocs(collection(window.db, "projects"));
+        projectsData.length = 0; // Clear existing
+        
+        snapshot.forEach((docSnap, index) => {
+            const data = docSnap.data();
+            projectsData.push({
+                id: index + 1,
+                ...data
+            });
+        });
+        
+        console.log(`Loaded ${projectsData.length} project(s) from Firebase for admin panel`);
+    } catch (error) {
+        console.error('Error loading projects from Firebase for admin:', error);
+        // Continue with existing projectsData
+    }
+}
+
 // Get projects tab
-function getProjectsTab() {
+async function getProjectsTab() {
+    // Load fresh data from Firebase if available
+    if (window.db && ADMIN_CONFIG.useFirebase) {
+        await loadProjectsFromFirebase();
+    }
+    
     let html = '<div class="admin-form"><h3>Projects <button class="btn btn-primary" onclick="addNewProject()" style="float: right; padding: 0.5rem 1rem;"><i class="fas fa-plus"></i> Add Project</button></h3>';
+    if (ADMIN_CONFIG.useFirebase && window.db) {
+        html += '<p style="color: #28a745; font-size: 0.9rem; margin-bottom: 1rem;"><i class="fas fa-check-circle"></i> Projects will be saved to Firebase Firestore</p>';
+    } else {
+        html += '<p style="color: #ffc107; font-size: 0.9rem; margin-bottom: 1rem;"><i class="fas fa-exclamation-triangle"></i> Projects saved to localStorage only</p>';
+    }
     projectsData.forEach((project, index) => {
         html += `
             <div class="admin-item-card" data-index="${index}">
@@ -477,83 +519,164 @@ function getSkillsTab() {
     return html;
 }
 
+// Save projects to Firebase Firestore
+async function saveProjectsToFirebase() {
+    if (!ADMIN_CONFIG.useFirebase || !window.db) {
+        console.log('Firebase writes disabled or Firebase not initialized');
+        return false;
+    }
+
+    try {
+        // Import Firebase functions dynamically
+        const { collection, getDocs, addDoc, updateDoc, deleteDoc, doc, writeBatch } = 
+            await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+
+        // Get current projects from Firebase
+        const projectsRef = collection(window.db, "projects");
+        const snapshot = await getDocs(projectsRef);
+        
+        // Create a batch for atomic writes
+        const batch = writeBatch(window.db);
+        
+        // Delete all existing projects
+        snapshot.forEach((docSnap) => {
+            batch.delete(doc(window.db, "projects", docSnap.id));
+        });
+        
+        // Add all current projects
+        projectsData.forEach((project) => {
+            // Remove id field (Firestore generates its own)
+            const { id, ...projectData } = project;
+            const newDocRef = doc(collection(window.db, "projects"));
+            batch.set(newDocRef, projectData);
+        });
+        
+        // Commit batch
+        await batch.commit();
+        console.log(`Successfully saved ${projectsData.length} project(s) to Firebase`);
+        return true;
+    } catch (error) {
+        console.error('Error saving projects to Firebase:', error);
+        throw error;
+    }
+}
+
 // Save all changes
-function saveAllChanges() {
-    // Save personal info
-    const personalInfo = {
-        name: document.getElementById('admin-name')?.value || '',
-        role: document.getElementById('admin-role')?.value || '',
-        tagline: document.getElementById('admin-tagline')?.value || '',
-        about: document.getElementById('admin-about')?.value || '',
-        email: document.getElementById('admin-email')?.value || '',
-        github: document.getElementById('admin-github')?.value || '',
-        linkedin: document.getElementById('admin-linkedin')?.value || ''
-    };
-    
-    // Save projects
-    document.querySelectorAll('.project-field').forEach(field => {
-        const index = parseInt(field.dataset.index);
-        const fieldName = field.dataset.field;
-        if (!projectsData[index]) projectsData[index] = { id: index + 1 };
+async function saveAllChanges() {
+    // Show loading state
+    const saveBtn = document.querySelector('.btn-primary[onclick="saveAllChanges()"]');
+    const originalText = saveBtn?.innerHTML;
+    if (saveBtn) {
+        saveBtn.disabled = true;
+        saveBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Saving...';
+    }
+
+    try {
+        // Save personal info
+        const personalInfo = {
+            name: document.getElementById('admin-name')?.value || '',
+            role: document.getElementById('admin-role')?.value || '',
+            tagline: document.getElementById('admin-tagline')?.value || '',
+            about: document.getElementById('admin-about')?.value || '',
+            email: document.getElementById('admin-email')?.value || '',
+            github: document.getElementById('admin-github')?.value || '',
+            linkedin: document.getElementById('admin-linkedin')?.value || ''
+        };
         
-        if (fieldName === 'techStack') {
-            projectsData[index][fieldName] = field.value.split(',').map(s => s.trim()).filter(s => s);
-        } else {
-            projectsData[index][fieldName] = field.value;
-        }
-    });
-    
-    // Save research
-    document.querySelectorAll('.research-field').forEach(field => {
-        const index = parseInt(field.dataset.index);
-        const fieldName = field.dataset.field;
-        if (!researchData[index]) researchData[index] = { id: index + 1 };
-        researchData[index][fieldName] = field.value;
-    });
-    
-    // Save certifications
-    document.querySelectorAll('.cert-field').forEach(field => {
-        const index = parseInt(field.dataset.index);
-        const fieldName = field.dataset.field;
-        if (!certificationsData[index]) certificationsData[index] = { id: index + 1 };
-        certificationsData[index][fieldName] = field.value;
-    });
-    
-    // Save timeline
-    document.querySelectorAll('.timeline-field').forEach(field => {
-        const index = parseInt(field.dataset.index);
-        const fieldName = field.dataset.field;
-        if (!timelineData[index]) timelineData[index] = { id: index + 1 };
-        timelineData[index][fieldName] = field.value;
-    });
-    
-    // Save skills
-    document.querySelectorAll('.skill-category-field').forEach(field => {
-        const category = field.dataset.category;
-        const fieldName = field.dataset.field;
-        if (!skillsData[category]) return;
+        // Save projects to projectsData array
+        document.querySelectorAll('.project-field').forEach(field => {
+            const index = parseInt(field.dataset.index);
+            const fieldName = field.dataset.field;
+            if (!projectsData[index]) projectsData[index] = { id: index + 1 };
+            
+            if (fieldName === 'techStack') {
+                projectsData[index][fieldName] = field.value.split(',').map(s => s.trim()).filter(s => s);
+            } else {
+                projectsData[index][fieldName] = field.value;
+            }
+        });
         
-        if (fieldName === 'skills') {
-            skillsData[category][fieldName] = field.value.split(',').map(s => s.trim()).filter(s => s);
-        } else {
-            skillsData[category][fieldName] = field.value;
+        // Save research
+        document.querySelectorAll('.research-field').forEach(field => {
+            const index = parseInt(field.dataset.index);
+            const fieldName = field.dataset.field;
+            if (!researchData[index]) researchData[index] = { id: index + 1 };
+            researchData[index][fieldName] = field.value;
+        });
+        
+        // Save certifications
+        document.querySelectorAll('.cert-field').forEach(field => {
+            const index = parseInt(field.dataset.index);
+            const fieldName = field.dataset.field;
+            if (!certificationsData[index]) certificationsData[index] = { id: index + 1 };
+            certificationsData[index][fieldName] = field.value;
+        });
+        
+        // Save timeline
+        document.querySelectorAll('.timeline-field').forEach(field => {
+            const index = parseInt(field.dataset.index);
+            const fieldName = field.dataset.field;
+            if (!timelineData[index]) timelineData[index] = { id: index + 1 };
+            timelineData[index][fieldName] = field.value;
+        });
+        
+        // Save skills
+        document.querySelectorAll('.skill-category-field').forEach(field => {
+            const category = field.dataset.category;
+            const fieldName = field.dataset.field;
+            if (!skillsData[category]) return;
+            
+            if (fieldName === 'skills') {
+                skillsData[category][fieldName] = field.value.split(',').map(s => s.trim()).filter(s => s);
+            } else {
+                skillsData[category][fieldName] = field.value;
+            }
+        });
+        
+        // Update personal info in HTML
+        setPersonalInfo(personalInfo);
+        
+        // Save to localStorage (backup)
+        savePortfolioData();
+        
+        // Save projects to Firebase if enabled
+        let firebaseSuccess = false;
+        if (ADMIN_CONFIG.useFirebase && window.db) {
+            try {
+                firebaseSuccess = await saveProjectsToFirebase();
+            } catch (error) {
+                console.error('Failed to save to Firebase:', error);
+                alert(`Warning: Changes saved locally but failed to save to Firebase.\n\nError: ${error.message}\n\nPlease check Firestore rules allow writes.`);
+            }
         }
-    });
-    
-    // Update personal info in HTML
-    setPersonalInfo(personalInfo);
-    
-    // Save to localStorage
-    savePortfolioData();
-    
-    // Reload content
-    loadSkills();
-    loadProjects();
-    loadResearch();
-    loadCertifications();
-    loadTimeline();
-    
-    alert('All changes saved successfully!');
+        
+        // Reload content
+        if (typeof loadSkills === 'function') loadSkills();
+        if (typeof window.loadProjects === 'function') {
+            await window.loadProjects();
+        }
+        if (typeof loadResearch === 'function') loadResearch();
+        if (typeof loadCertifications === 'function') loadCertifications();
+        if (typeof loadTimeline === 'function') loadTimeline();
+        
+        // Success message
+        if (firebaseSuccess) {
+            alert('✅ All changes saved successfully to Firebase!');
+        } else if (ADMIN_CONFIG.useFirebase) {
+            alert('⚠️ Changes saved locally. Firebase save failed - check console for details.');
+        } else {
+            alert('✅ All changes saved successfully to localStorage!');
+        }
+    } catch (error) {
+        console.error('Error saving changes:', error);
+        alert(`Error saving changes: ${error.message}`);
+    } finally {
+        // Restore button
+        if (saveBtn) {
+            saveBtn.disabled = false;
+            saveBtn.innerHTML = originalText || '<i class="fas fa-save"></i> Save All Changes';
+        }
+    }
 }
 
 // Add new project
@@ -679,11 +802,13 @@ function importData() {
                     if (data.certifications) certificationsData = data.certifications;
                     if (data.timeline) timelineData = data.timeline;
                     savePortfolioData();
-                    loadSkills();
-                    loadProjects();
-                    loadResearch();
-                    loadCertifications();
-                    loadTimeline();
+                    if (typeof loadSkills === 'function') loadSkills();
+                    if (typeof window.loadProjects === 'function') {
+                      window.loadProjects().catch(err => console.error('Error reloading projects:', err));
+                    }
+                    if (typeof loadResearch === 'function') loadResearch();
+                    if (typeof loadCertifications === 'function') loadCertifications();
+                    if (typeof loadTimeline === 'function') loadTimeline();
                     if (data.personalInfo) setPersonalInfo(data.personalInfo);
                     alert('Data imported successfully!');
                     closeAdminPanel();
@@ -723,15 +848,30 @@ function editSection(sectionId) {
 }
 
 // Initialize admin system
-function initAdmin() {
+async function initAdmin() {
     // Load saved data on page load
     loadPortfolioData();
+    
+    // Load projects from Firebase if available
+    if (window.db && ADMIN_CONFIG.useFirebase) {
+        await loadProjectsFromFirebase();
+    }
     
     // Show/hide edit buttons based on admin status
     if (isAdmin()) {
         showEditButtons();
     } else {
         hideEditButtons();
+    }
+    
+    // Log admin status
+    if (isAdmin()) {
+        console.log('Admin mode: Active');
+        if (ADMIN_CONFIG.useFirebase && window.db) {
+            console.log('Firebase writes: Enabled');
+        } else {
+            console.log('Firebase writes: Disabled (using localStorage)');
+        }
     }
 }
 
@@ -743,6 +883,8 @@ window.openAdminPanel = openAdminPanel;
 window.closeAdminPanel = closeAdminPanel;
 window.switchAdminTab = switchAdminTab;
 window.saveAllChanges = saveAllChanges;
+window.saveProjectsToFirebase = saveProjectsToFirebase;
+window.loadProjectsFromFirebase = loadProjectsFromFirebase;
 window.addNewProject = addNewProject;
 window.deleteProject = deleteProject;
 window.addNewResearch = addNewResearch;

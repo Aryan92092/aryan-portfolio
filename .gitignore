@@ -18,6 +18,16 @@ npm-debug.log*
 *.tmp
 *.temp
 
+# Documentation/Guide files (not needed for production)
+FIREBASE_CONNECTION_TEST.md
+FIREBASE_DEPLOYMENT_FIX.md
+UPDATE_VIA_FIREBASE_BACKEND.md
+ADMIN_INSTRUCTIONS.md
+QUICK_START.md
+
+# Duplicate/old portfolio folder
+aryan-portfolio/
+
 # Optional: Uncomment if you want to ignore large assets
 # assets/images/
 # assets/research-papers/
