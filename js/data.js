@@ -26,6 +26,9 @@ const skillsData = {
     }
 };
 
+// Make data globally available for modules
+window.skillsData = skillsData;
+
 // Projects Data
 const projectsData = [
     {
@@ -108,6 +111,9 @@ const projectsData = [
     }
 ];
 
+// Make projectsData globally available
+window.projectsData = projectsData;
+
 // Research Papers Data
 const researchData = [
     {
@@ -138,6 +144,9 @@ const researchData = [
         authors: "Aryan Prajapati, Co-Author"
     }
 ];
+
+// Make researchData globally available
+window.researchData = researchData;
 
 // Certifications Data
 const certificationsData = [
@@ -185,6 +194,9 @@ const certificationsData = [
     }
 ];
 
+// Make certificationsData globally available
+window.certificationsData = certificationsData;
+
 // Timeline Data
 const timelineData = [
     {
@@ -223,4 +235,7 @@ const timelineData = [
         description: "Received best paper award for research on IoT-based smart agriculture systems using machine learning."
     }
 ];
+
+// Make timelineData globally available
+window.timelineData = timelineData;
 

@@ -54,6 +54,257 @@ import {
   });
   
   // ============================================
+  // LOAD SKILLS
+  // ============================================
+
+  function loadSkills() {
+    const skillsGrid = document.getElementById('skillsGrid');
+    if (!skillsGrid) {
+      console.error('Skills grid element not found');
+      return;
+    }
+
+    skillsGrid.innerHTML = '';
+
+    // Check localStorage first (for admin panel edits), then fallback to static data
+    let skillsToLoad = window.skillsData;
+    try {
+      const savedData = localStorage.getItem('portfolio_data');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.skills && Object.keys(parsed.skills).length > 0) {
+          skillsToLoad = parsed.skills;
+          console.log('Loading skills from localStorage (admin edits)');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load skills from localStorage, using default data');
+    }
+
+    if (!skillsToLoad || Object.keys(skillsToLoad).length === 0) {
+      skillsGrid.innerHTML = '<p style="text-align: center; color: #999;">No skills data available.</p>';
+      return;
+    }
+
+    Object.keys(skillsToLoad).forEach((key, index) => {
+      const category = skillsToLoad[key];
+      const categoryDiv = document.createElement('div');
+      categoryDiv.className = 'skill-category';
+      categoryDiv.setAttribute('data-aos', 'fade-up');
+      categoryDiv.style.animationDelay = `${index * 0.1}s`;
+
+      const skillsList = category.skills.map(skill => 
+        `<span class="skill-tag">${skill}</span>`
+      ).join('');
+
+      categoryDiv.innerHTML = `
+        <div class="skill-category-header">
+          <i class="${category.icon || 'fas fa-code'}"></i>
+          <h3>${category.title || 'Skills'}</h3>
+        </div>
+        <div class="skill-tags">
+          ${skillsList}
+        </div>
+      `;
+
+      skillsGrid.appendChild(categoryDiv);
+    });
+
+    AOS.refresh();
+  }
+
+  // ============================================
+  // LOAD RESEARCH PAPERS
+  // ============================================
+
+  function loadResearch() {
+    const researchGrid = document.getElementById('researchGrid');
+    if (!researchGrid) {
+      console.error('Research grid element not found');
+      return;
+    }
+
+    researchGrid.innerHTML = '';
+
+    // Check localStorage first (for admin panel edits), then fallback to static data
+    let researchToLoad = window.researchData;
+    try {
+      const savedData = localStorage.getItem('portfolio_data');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.research && parsed.research.length > 0) {
+          researchToLoad = parsed.research;
+          console.log('Loading research from localStorage (admin edits)');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load research from localStorage, using default data');
+    }
+
+    if (!researchToLoad || researchToLoad.length === 0) {
+      researchGrid.innerHTML = '<p style="text-align: center; color: #999; padding: 2rem;">No research papers available.</p>';
+      return;
+    }
+
+    researchToLoad.forEach((research, index) => {
+      const card = document.createElement('div');
+      card.className = 'research-card';
+      card.setAttribute('data-aos', 'fade-up');
+      card.style.animationDelay = `${index * 0.1}s`;
+
+      const escapeHtml = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      card.innerHTML = `
+        <div class="research-content">
+          <h3>${escapeHtml(research.title || 'Untitled Paper')}</h3>
+          <div class="research-meta">
+            <span class="research-conference">${escapeHtml(research.conference || 'N/A')}</span>
+            <span class="research-year">${escapeHtml(research.year || 'N/A')}</span>
+          </div>
+          <p class="research-abstract">${escapeHtml(research.abstract || 'No abstract available.')}</p>
+          <div class="research-authors">
+            <i class="fas fa-users"></i> ${escapeHtml(research.authors || 'N/A')}
+          </div>
+          ${research.pdf ? `<a href="${escapeHtml(research.pdf)}" target="_blank" rel="noopener noreferrer" class="btn btn-primary">
+            <i class="fas fa-file-pdf"></i> View PDF</a>` : ''}
+        </div>
+      `;
+
+      researchGrid.appendChild(card);
+    });
+
+    AOS.refresh();
+  }
+
+  // ============================================
+  // LOAD CERTIFICATIONS
+  // ============================================
+
+  function loadCertifications() {
+    const certificationsGrid = document.getElementById('certificationsGrid');
+    if (!certificationsGrid) {
+      console.error('Certifications grid element not found');
+      return;
+    }
+
+    certificationsGrid.innerHTML = '';
+
+    // Check localStorage first (for admin panel edits), then fallback to static data
+    let certsToLoad = window.certificationsData;
+    try {
+      const savedData = localStorage.getItem('portfolio_data');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.certifications && parsed.certifications.length > 0) {
+          certsToLoad = parsed.certifications;
+          console.log('Loading certifications from localStorage (admin edits)');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load certifications from localStorage, using default data');
+    }
+
+    if (!certsToLoad || certsToLoad.length === 0) {
+      certificationsGrid.innerHTML = '<p style="text-align: center; color: #999; padding: 2rem;">No certifications available.</p>';
+      return;
+    }
+
+    certsToLoad.forEach((cert, index) => {
+      const card = document.createElement('div');
+      card.className = 'certification-card';
+      card.setAttribute('data-aos', 'fade-up');
+      card.style.animationDelay = `${index * 0.1}s`;
+
+      const escapeHtml = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      card.innerHTML = `
+        <div class="certification-image">
+          ${cert.image ? `<img src="${escapeHtml(cert.image)}" alt="${escapeHtml(cert.title || 'Certification')}" loading="lazy">` 
+            : `<div class="cert-image-placeholder"><i class="fas fa-certificate"></i></div>`}
+        </div>
+        <div class="certification-content">
+          <h3>${escapeHtml(cert.title || 'Untitled Certification')}</h3>
+          <p class="certification-issuer">${escapeHtml(cert.issuer || 'N/A')}</p>
+          <span class="certification-year">${escapeHtml(cert.year || 'N/A')}</span>
+        </div>
+      `;
+
+      certificationsGrid.appendChild(card);
+    });
+
+    AOS.refresh();
+  }
+
+  // ============================================
+  // LOAD TIMELINE
+  // ============================================
+
+  function loadTimeline() {
+    const timelineContainer = document.getElementById('timelineContainer');
+    if (!timelineContainer) {
+      console.error('Timeline container element not found');
+      return;
+    }
+
+    timelineContainer.innerHTML = '';
+
+    // Check localStorage first (for admin panel edits), then fallback to static data
+    let timelineToLoad = window.timelineData;
+    try {
+      const savedData = localStorage.getItem('portfolio_data');
+      if (savedData) {
+        const parsed = JSON.parse(savedData);
+        if (parsed.timeline && parsed.timeline.length > 0) {
+          timelineToLoad = parsed.timeline;
+          console.log('Loading timeline from localStorage (admin edits)');
+        }
+      }
+    } catch (e) {
+      console.warn('Could not load timeline from localStorage, using default data');
+    }
+
+    if (!timelineToLoad || timelineToLoad.length === 0) {
+      timelineContainer.innerHTML = '<p style="text-align: center; color: #999; padding: 2rem;">No timeline items available.</p>';
+      return;
+    }
+
+    timelineToLoad.forEach((item, index) => {
+      const timelineItem = document.createElement('div');
+      timelineItem.className = 'timeline-item';
+      timelineItem.setAttribute('data-aos', index % 2 === 0 ? 'fade-right' : 'fade-left');
+      timelineItem.style.animationDelay = `${index * 0.1}s`;
+
+      const escapeHtml = (text) => {
+        const div = document.createElement('div');
+        div.textContent = text;
+        return div.innerHTML;
+      };
+
+      timelineItem.innerHTML = `
+        <div class="timeline-marker"></div>
+        <div class="timeline-content">
+          <div class="timeline-date">${escapeHtml(item.date || 'N/A')}</div>
+          <h3>${escapeHtml(item.title || 'Untitled')}</h3>
+          <p class="timeline-organization">${escapeHtml(item.organization || 'N/A')}</p>
+          <p class="timeline-description">${escapeHtml(item.description || 'No description available.')}</p>
+        </div>
+      `;
+
+      timelineContainer.appendChild(timelineItem);
+    });
+
+    AOS.refresh();
+  }
+
+  // ============================================
   // LOAD PROJECTS FROM FIREBASE (IMPORTANT)
   // ============================================
 
@@ -212,6 +463,12 @@ import {
   }
 
   document.addEventListener('DOMContentLoaded', async () => {
+    // Load static data sections first (don't require Firebase)
+    loadSkills();
+    loadResearch();
+    loadCertifications();
+    loadTimeline();
+
     // Wait for Firebase to initialize with proper retry
     const firebaseReady = await waitForFirebase();
     
@@ -250,6 +507,10 @@ import {
 
   // Make functions globally available for admin.js and debugging
   window.loadProjects = loadProjects;
+  window.loadSkills = loadSkills;
+  window.loadResearch = loadResearch;
+  window.loadCertifications = loadCertifications;
+  window.loadTimeline = loadTimeline;
   window.showAdminLogin = showAdminLogin;
   window.closeAdminLogin = closeAdminLogin;
   window.handleAdminLogin = handleAdminLogin;
