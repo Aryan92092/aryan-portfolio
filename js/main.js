@@ -52,6 +52,34 @@ import {
     navMenu.classList.toggle('active');
     navToggle.classList.toggle('active');
   });
+
+  // Auto-close mobile menu when a nav link is clicked
+  document.querySelectorAll('.nav-menu a').forEach(link => {
+    link.addEventListener('click', () => {
+      if (window.innerWidth <= 768) {
+        navMenu.classList.remove('active');
+        navToggle.classList.remove('active');
+      }
+    });
+  });
+
+  // Close mobile menu when window is resized to desktop
+  window.addEventListener('resize', () => {
+    if (window.innerWidth > 768) {
+      navMenu.classList.remove('active');
+      navToggle.classList.remove('active');
+    }
+  });
+
+  // Subtle parallax for hero gradient on pointer move (disabled on touch devices)
+  const heroBg = document.querySelector('.hero-gradient');
+  if (heroBg && window.matchMedia('(hover: hover)').matches) {
+    document.addEventListener('pointermove', (e) => {
+      const x = (e.clientX / window.innerWidth - 0.5) * 10; // small tilt
+      const y = (e.clientY / window.innerHeight - 0.5) * 6;
+      heroBg.style.transform = `translate3d(${x}px, ${-y}px, 0)`;
+    });
+  }
   
   // ============================================
   // LOAD SKILLS
