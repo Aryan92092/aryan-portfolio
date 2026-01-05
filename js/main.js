@@ -399,6 +399,27 @@ import {
       `;
     }
   }
+
+  // Fetch research from Firebase for public site
+  async function fetchResearchFromFirebase() {
+    if (!window.db) return;
+    try {
+      const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+      const snapshot = await getDocs(collection(window.db, "research"));
+      const arr = [];
+      snapshot.forEach(docSnap => {
+        const d = docSnap.data();
+        if (d.authors && !Array.isArray(d.authors) && typeof d.authors === 'string') {
+          d.authors = d.authors.split(',').map(s => s.trim()).filter(Boolean);
+        }
+        arr.push(d);
+      });
+      window.researchData = arr;
+      console.log(`Fetched ${arr.length} research paper(s) from Firebase`);
+    } catch (err) {
+      console.error('Error fetching research from Firebase (public):', err);
+    }
+  }
   
   // ============================================
   // Admin Login Functions
@@ -474,6 +495,13 @@ import {
     
     if (firebaseReady) {
       await loadProjects();
+      // Fetch research from Firebase and re-render research section
+      try {
+        await fetchResearchFromFirebase();
+        loadResearch();
+      } catch (e) {
+        console.warn('Could not fetch research from Firebase for public site:', e);
+      }
     } else {
       console.error('Firebase initialization timeout. Check Firebase configuration and network connection.');
       const projectsFeed = document.getElementById('projectsFeed');

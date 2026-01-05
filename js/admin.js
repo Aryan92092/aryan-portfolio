@@ -412,9 +412,13 @@ function getResearchTab() {
                     <textarea class="research-field" data-field="abstract" data-index="${index}" rows="4">${research.abstract || ''}</textarea>
                 </div>
                 <div class="form-group">
+                    <label>Authors (comma-separated)</label>
+                    <input type="text" class="research-field" data-field="authors" data-index="${index}" value="${Array.isArray(research.authors) ? research.authors.join(', ') : (research.authors || '')}">
+                </div>
+                <div class="form-group">
                     <label>PDF Path</label>
                     <input type="text" class="research-field" data-field="pdf" data-index="${index}" value="${research.pdf || ''}">
-                </div>
+                </div> 
             </div>
         `;
     });
@@ -561,6 +565,68 @@ async function saveProjectsToFirebase() {
     }
 }
 
+// Load research from Firebase into researchData array
+async function loadResearchFromFirebase() {
+    if (!window.db) {
+        console.warn('Firebase not initialized, using local researchData');
+        return;
+    }
+
+    try {
+        const { collection, getDocs } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const snapshot = await getDocs(collection(window.db, "research"));
+        researchData.length = 0; // clear existing
+
+        snapshot.forEach((docSnap, index) => {
+            const data = docSnap.data();
+            // Normalize authors to array
+            if (data.authors && !Array.isArray(data.authors) && typeof data.authors === 'string') {
+                data.authors = data.authors.split(',').map(s => s.trim()).filter(Boolean);
+            }
+            researchData.push({ id: index + 1, ...data });
+        });
+
+        console.log(`Loaded ${researchData.length} research paper(s) from Firebase for admin panel`);
+    } catch (error) {
+        console.error('Error loading research from Firebase for admin:', error);
+    }
+}
+
+// Save research to Firebase Firestore
+async function saveResearchToFirebase() {
+    if (!ADMIN_CONFIG.useFirebase || !window.db) {
+        console.log('Firebase writes disabled or Firebase not initialized (research)');
+        return false;
+    }
+
+    try {
+        const { collection, getDocs, doc, writeBatch } = await import("https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js");
+        const researchRef = collection(window.db, "research");
+        const snapshot = await getDocs(researchRef);
+
+        const batch = writeBatch(window.db);
+
+        // Delete existing
+        snapshot.forEach((docSnap) => {
+            batch.delete(doc(window.db, "research", docSnap.id));
+        });
+
+        // Add current research items
+        researchData.forEach((r) => {
+            const { id, ...rData } = r;
+            const newDocRef = doc(collection(window.db, "research"));
+            batch.set(newDocRef, rData);
+        });
+
+        await batch.commit();
+        console.log(`Successfully saved ${researchData.length} research paper(s) to Firebase`);
+        return true;
+    } catch (error) {
+        console.error('Error saving research to Firebase:', error);
+        throw error;
+    }
+}
+
 // Save all changes
 async function saveAllChanges() {
     // Show loading state
@@ -601,7 +667,12 @@ async function saveAllChanges() {
             const index = parseInt(field.dataset.index);
             const fieldName = field.dataset.field;
             if (!researchData[index]) researchData[index] = { id: index + 1 };
-            researchData[index][fieldName] = field.value;
+            if (fieldName === 'authors') {
+                // store as array of trimmed author names
+                researchData[index][fieldName] = field.value.split(',').map(s => s.trim()).filter(Boolean);
+            } else {
+                researchData[index][fieldName] = field.value;
+            }
         });
         
         // Save certifications
@@ -639,11 +710,13 @@ async function saveAllChanges() {
         // Save to localStorage (backup)
         savePortfolioData();
         
-        // Save projects to Firebase if enabled
+        // Save projects and research to Firebase if enabled
         let firebaseSuccess = false;
         if (ADMIN_CONFIG.useFirebase && window.db) {
             try {
-                firebaseSuccess = await saveProjectsToFirebase();
+                const projectsOk = await saveProjectsToFirebase();
+                const researchOk = await saveResearchToFirebase();
+                firebaseSuccess = projectsOk && researchOk;
             } catch (error) {
                 console.error('Failed to save to Firebase:', error);
                 alert(`Warning: Changes saved locally but failed to save to Firebase.\n\nError: ${error.message}\n\nPlease check Firestore rules allow writes.`);
@@ -712,10 +785,11 @@ function addNewResearch() {
         conference: '',
         abstract: '',
         pdf: '',
-        year: ''
+        year: '',
+        authors: []
     });
     switchAdminTab('research', null);
-}
+} 
 
 // Delete research
 function deleteResearch(index) {
@@ -852,9 +926,10 @@ async function initAdmin() {
     // Load saved data on page load
     loadPortfolioData();
     
-    // Load projects from Firebase if available
+    // Load projects and research from Firebase if available
     if (window.db && ADMIN_CONFIG.useFirebase) {
         await loadProjectsFromFirebase();
+        await loadResearchFromFirebase();
     }
     
     // Show/hide edit buttons based on admin status
@@ -885,6 +960,8 @@ window.switchAdminTab = switchAdminTab;
 window.saveAllChanges = saveAllChanges;
 window.saveProjectsToFirebase = saveProjectsToFirebase;
 window.loadProjectsFromFirebase = loadProjectsFromFirebase;
+window.saveResearchToFirebase = saveResearchToFirebase;
+window.loadResearchFromFirebase = loadResearchFromFirebase;
 window.addNewProject = addNewProject;
 window.deleteProject = deleteProject;
 window.addNewResearch = addNewResearch;
